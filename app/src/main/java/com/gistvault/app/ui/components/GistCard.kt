@@ -199,3 +199,24 @@ fun GistCard(
         }
     }
 }
+
+// Relative time formatting matching T(e) in the original app:
+fun formatRelativeTime(dateString: String?): String {
+    if (dateString.isNullOrBlank()) return ""
+    return try {
+        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val date = parser.parse(dateString) ?: return ""
+        val diffSec = (System.currentTimeMillis() - date.time) / 1000
+        when {
+            diffSec < 60 -> "just now"
+            diffSec < 3600 -> "${diffSec / 60}m ago"
+            diffSec < 86400 -> "${diffSec / 3600}h ago"
+            diffSec < 2592000 -> "${diffSec / 86400}d ago"
+            else -> SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(date)
+        }
+    } catch (_: Exception) {
+        ""
+    }
+}
