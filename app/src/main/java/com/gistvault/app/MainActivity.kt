@@ -2,10 +2,6 @@ package com.gistvault.app
 
 import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -31,7 +27,6 @@ import com.gistvault.app.ui.screens.*
 import com.gistvault.app.ui.theme.GistVaultAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -46,7 +41,6 @@ class MainActivity : ComponentActivity() {
         gistRepository = GistRepository(this)
         settingsRepository = SettingsRepository(this)
 
-        // Initialize ApiClient token
         val initialToken = authRepository.getToken()
         if (!initialToken.isNullOrBlank()) {
             ApiClient.setToken(initialToken)
@@ -54,16 +48,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val currentTheme by settingsRepository.themeState.collectAsState()
-            val currentLang by settingsRepository.langState.collectAsState()
-
-            // Update app locale if needed
-            LaunchedEffect(currentLang) {
-                val locale = Locale(currentLang)
-                Locale.setDefault(locale)
-                val config = resources.configuration
-                config.setLocale(locale)
-                resources.updateConfiguration(config, resources.displayMetrics)
-            }
 
             GistVaultAppTheme(themeSetting = currentTheme) {
                 GistVaultApp(
@@ -71,7 +55,6 @@ class MainActivity : ComponentActivity() {
                     gistRepository = gistRepository,
                     settingsRepository = settingsRepository,
                     currentTheme = currentTheme,
-                    currentLang = currentLang,
                     onExitApp = { finish() }
                 )
             }
@@ -85,7 +68,6 @@ fun GistVaultApp(
     gistRepository: GistRepository,
     settingsRepository: SettingsRepository,
     currentTheme: String,
-    currentLang: String,
     onExitApp: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -159,7 +141,7 @@ fun GistVaultApp(
         // Verify session
         val token = authRepository.getToken()
         if (!token.isNullOrBlank()) {
-            delay(1200) // Animated splash delay
+            delay(1600) // Polished animated splash delay
             val verify = authRepository.verifyCurrentUser()
             verify.onSuccess { (user, hasScope) ->
                 currentUser = user
@@ -169,7 +151,6 @@ fun GistVaultApp(
                     showToast("Connected, but token lacks 'gist' scope", 4200)
                 }
             }.onFailure {
-                // If offline, still allow home with cached gists
                 val cached = gistRepository.getCachedGists()
                 if (cached != null) {
                     currentScreen = Screen.Home
@@ -179,7 +160,7 @@ fun GistVaultApp(
                 }
             }
         } else {
-            delay(1200)
+            delay(1600)
             currentScreen = Screen.Login
         }
     }
@@ -316,13 +297,7 @@ fun GistVaultApp(
                 SettingsScreen(
                     currentUser = currentUser,
                     currentTheme = currentTheme,
-                    currentLang = currentLang,
                     onSelectTheme = { settingsRepository.setTheme(it) },
-                    onToggleLang = {
-                        val nextLang = if (currentLang == "bn") "en" else "bn"
-                        settingsRepository.setLanguage(nextLang)
-                        showToast(if (nextLang == "bn") "ভাষা: বাংলা" else "Language: English", 2600)
-                    },
                     onDisconnect = {
                         authRepository.clearToken()
                         currentUser = null

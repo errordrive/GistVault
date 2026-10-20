@@ -2,9 +2,11 @@ package com.gistvault.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,17 +45,30 @@ fun HomeScreen(
 ) {
     val colors = GistTheme.colors
     var searchQuery by remember { mutableStateOf("") }
+    var selectedFilter by remember { mutableStateOf("all") } // "all", "secret", "public"
 
-    // Filtering by text or #tag
-    val filteredGists = remember(gists, searchQuery) {
+    // Extract all unique tags across all gists
+    val allTags = remember(gists) {
+        gists.flatMap { it.tags }.distinct().take(12)
+    }
+
+    // Filtering by text, filter chip, or #tag
+    val filteredGists = remember(gists, searchQuery, selectedFilter) {
+        var list = gists
+        if (selectedFilter == "secret") {
+            list = list.filter { !it.public }
+        } else if (selectedFilter == "public") {
+            list = list.filter { it.public }
+        }
+
         val query = searchQuery.trim().lowercase()
         if (query.isEmpty()) {
-            gists
+            list
         } else if (query.startsWith("#")) {
             val tag = query.removePrefix("#")
-            gists.filter { gist -> gist.tags.any { it.contains(tag) } }
+            list.filter { gist -> gist.tags.any { it.contains(tag) } }
         } else {
-            gists.filter { gist ->
+            list.filter { gist ->
                 gist.displayTitle.lowercase().contains(query) ||
                 gist.primaryFile.filename.lowercase().contains(query) ||
                 gist.tags.any { it.contains(query) }
@@ -93,24 +108,24 @@ fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(colors.dangerSoft)
-                            .padding(vertical = 6.dp, horizontal = 16.dp),
+                            .padding(vertical = 7.dp, horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = stringResource(id = R.string.offline_bar),
                             color = colors.danger,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
 
-                // Search Bar
+                // Search Bar with pill shape
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(colors.paper)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
@@ -119,14 +134,15 @@ fun HomeScreen(
                             Text(
                                 text = stringResource(id = R.string.home_search),
                                 color = colors.faint,
-                                fontSize = 14.sp
+                                fontSize = 13.5.sp
                             )
                         },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = null,
-                                tint = colors.muted
+                                tint = colors.muted,
+                                modifier = Modifier.size(19.dp)
                             )
                         },
                         trailingIcon = {
@@ -135,23 +151,63 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear",
-                                        tint = colors.muted
+                                        tint = colors.muted,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(999.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = colors.card,
                             unfocusedContainerColor = colors.card,
                             focusedBorderColor = colors.primary,
-                            unfocusedBorderColor = colors.line,
+                            unfocusedBorderColor = colors.line.copy(alpha = 0.7f),
                             focusedTextColor = colors.ink,
                             unfocusedTextColor = colors.ink
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(50.dp)
                     )
+                }
+
+                // Filter & Tag Chips Bar
+                if (gists.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colors.paper)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterPill(
+                            label = "All",
+                            isSelected = selectedFilter == "all",
+                            onClick = { selectedFilter = "all" }
+                        )
+                        FilterPill(
+                            label = "Secret",
+                            isSelected = selectedFilter == "secret",
+                            onClick = { selectedFilter = "secret" }
+                        )
+                        FilterPill(
+                            label = "Public",
+                            isSelected = selectedFilter == "public",
+                            onClick = { selectedFilter = "public" }
+                        )
+
+                        allTags.forEach { tag ->
+                            val isTagActive = searchQuery == "#$tag"
+                            FilterPill(
+                                label = "#$tag",
+                                isSelected = isTagActive,
+                                onClick = {
+                                    searchQuery = if (isTagActive) "" else "#$tag"
+                                }
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -161,6 +217,7 @@ fun HomeScreen(
                 containerColor = colors.primary,
                 contentColor = colors.onPrimary,
                 shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                 modifier = Modifier.size(56.dp)
             ) {
                 Icon(
@@ -179,7 +236,6 @@ fun HomeScreen(
         ) {
             when {
                 isLoading && gists.isEmpty() -> {
-                    // Syncing loader
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -188,32 +244,30 @@ fun HomeScreen(
                         CircularProgressIndicator(
                             color = colors.primary,
                             strokeWidth = 3.dp,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(38.dp)
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = stringResource(id = R.string.home_syncing),
                             color = colors.muted,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
                 gists.isEmpty() && isOffline -> {
-                    // No connection empty state
                     EmptyStateView(
                         title = stringResource(id = R.string.home_no_conn),
                         subtitle = stringResource(id = R.string.home_no_conn_sub)
                     )
                 }
                 gists.isEmpty() -> {
-                    // Vault empty
                     EmptyStateView(
                         title = stringResource(id = R.string.home_empty_title),
                         subtitle = stringResource(id = R.string.home_empty_sub)
                     )
                 }
                 filteredGists.isEmpty() -> {
-                    // Search no match
                     EmptyStateView(
                         title = stringResource(id = R.string.home_no_match),
                         subtitle = stringResource(id = R.string.home_no_match_sub)
@@ -222,7 +276,7 @@ fun HomeScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 80.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(filteredGists, key = { it.id }) { gist ->
@@ -236,6 +290,31 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun FilterPill(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = GistTheme.colors
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (isSelected) colors.primary else colors.card)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (isSelected) colors.onPrimary else colors.inkSoft,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
 
@@ -255,7 +334,7 @@ fun EmptyStateView(
     ) {
         Box(
             modifier = Modifier
-                .size(64.dp)
+                .size(72.dp)
                 .clip(CircleShape)
                 .background(colors.primarySoft),
             contentAlignment = Alignment.Center
@@ -264,11 +343,11 @@ fun EmptyStateView(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
                 tint = colors.primary,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(36.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
             text = title,
@@ -283,8 +362,9 @@ fun EmptyStateView(
         Text(
             text = subtitle,
             color = colors.muted,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center
+            fontSize = 13.5.sp,
+            textAlign = TextAlign.Center,
+            lineHeight = 19.sp
         )
     }
 }

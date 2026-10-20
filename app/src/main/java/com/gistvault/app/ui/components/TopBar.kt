@@ -3,18 +3,19 @@ package com.gistvault.app.ui.components
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,6 +53,7 @@ fun TopBar(
                 modifier = Modifier
                     .size(40.dp)
                     .background(colors.card, CircleShape)
+                    .border(1.dp, colors.line.copy(alpha = 0.5f), CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -64,14 +66,19 @@ fun TopBar(
         } else if (showLogo) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(colors.primarySoft, RoundedCornerShape(12.dp)),
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.line.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                    .padding(3.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.splash_logo),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(28.dp)
+                    painter = painterResource(id = R.drawable.logo_app),
+                    contentDescription = "GistVault Logo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(9.dp))
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -83,8 +90,9 @@ fun TopBar(
             Text(
                 text = title,
                 color = colors.ink,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.3.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -93,6 +101,7 @@ fun TopBar(
                     text = subtitle,
                     color = colors.muted,
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -136,13 +145,14 @@ fun TopBarIconButton(
         modifier = Modifier
             .size(40.dp)
             .background(if (isDanger) colors.dangerSoft else colors.card, CircleShape)
+            .border(1.dp, if (isDanger) colors.danger.copy(alpha = 0.3f) else colors.line.copy(alpha = 0.5f), CircleShape)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = if (isDanger) colors.danger else tint,
             modifier = Modifier
-                .size(20.dp)
+                .size(19.dp)
                 .rotate(rotation)
         )
     }

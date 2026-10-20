@@ -1,8 +1,13 @@
 package com.gistvault.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -61,42 +67,50 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp)
+                .padding(horizontal = 20.dp, vertical = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Card Container
+            // Main Card Container with refined border
             Card(
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = colors.card),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.line.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(26.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Logo
+                    // Logo with glowing container
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
-                            .background(colors.primarySoft, RoundedCornerShape(20.dp)),
+                            .size(76.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(colors.primarySoft)
+                            .border(1.dp, colors.line.copy(alpha = 0.5f), RoundedCornerShape(22.dp))
+                            .padding(4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.splash_logo),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(48.dp)
+                            painter = painterResource(id = R.drawable.logo_app),
+                            contentDescription = "GistVault Logo",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(18.dp))
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     Text(
                         text = "GistVault",
                         color = colors.ink,
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.5.sp
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -104,29 +118,43 @@ fun LoginScreen(
                     Text(
                         text = stringResource(id = R.string.login_sub),
                         color = colors.muted,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center
+                        fontSize = 13.5.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 19.sp
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(26.dp))
 
-                    // Login with GitHub Button
+                    // Login with GitHub Button (One-click device flow)
                     Button(
                         onClick = onLoginWithGitHub,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(12.dp),
+                            .height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (colors.isDark) Color(0xFF24292F) else Color(0xFF1F2328)
-                        )
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
-                        Text(
-                            text = stringResource(id = R.string.login_github),
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Key,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = stringResource(id = R.string.login_github),
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -138,38 +166,49 @@ fun LoginScreen(
                     ) {
                         HorizontalDivider(
                             modifier = Modifier.weight(1f),
-                            color = colors.line
+                            color = colors.line.copy(alpha = 0.7f)
                         )
                         Text(
                             text = stringResource(id = R.string.login_or),
                             color = colors.faint,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 12.dp)
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 14.dp)
                         )
                         HorizontalDivider(
                             modifier = Modifier.weight(1f),
-                            color = colors.line
+                            color = colors.line.copy(alpha = 0.7f)
                         )
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Personal Access Token expandable section
+                    // Personal Access Token expandable toggle
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isTokenDetailsOpen) colors.primarySoft.copy(alpha = 0.5f) else Color.Transparent)
                             .clickable { isTokenDetailsOpen = !isTokenDetailsOpen }
-                            .padding(vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = stringResource(id = R.string.login_token_toggle),
-                            color = colors.primary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Key,
+                                contentDescription = null,
+                                tint = colors.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(id = R.string.login_token_toggle),
+                                color = colors.primary,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                         Icon(
                             imageVector = Icons.Default.ChevronRight,
                             contentDescription = null,
@@ -178,13 +217,21 @@ fun LoginScreen(
                         )
                     }
 
-                    AnimatedVisibility(visible = isTokenDetailsOpen) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    AnimatedVisibility(
+                        visible = isTokenDetailsOpen,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 14.dp)
+                        ) {
                             Text(
                                 text = stringResource(id = R.string.login_token_label),
                                 color = colors.inkSoft,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
 
                             Spacer(modifier = Modifier.height(6.dp))
@@ -196,14 +243,16 @@ fun LoginScreen(
                                     Text(
                                         text = "ghp_••••••••••••••••",
                                         color = colors.faint,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 13.sp
                                     )
                                 },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Key,
                                         contentDescription = null,
-                                        tint = colors.muted
+                                        tint = colors.muted,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 },
                                 trailingIcon = {
@@ -211,7 +260,8 @@ fun LoginScreen(
                                         Icon(
                                             imageVector = if (isTokenVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                             contentDescription = null,
-                                            tint = colors.muted
+                                            tint = colors.muted,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 },
@@ -225,25 +275,46 @@ fun LoginScreen(
                                     focusedBorderColor = colors.primary,
                                     unfocusedBorderColor = colors.line,
                                     focusedTextColor = colors.ink,
-                                    unfocusedTextColor = colors.ink
+                                    unfocusedTextColor = colors.ink,
+                                    focusedContainerColor = colors.paper.copy(alpha = 0.5f),
+                                    unfocusedContainerColor = colors.paper.copy(alpha = 0.5f)
                                 ),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             )
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                            Text(
-                                text = stringResource(id = R.string.login_hint),
-                                color = colors.faint,
-                                fontSize = 12.sp
-                            )
+                            // Privacy badge reassurance: Only Gist scope!
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(colors.successSoft.copy(alpha = 0.7f))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = colors.success,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Requires ONLY 'gist' permission. No repo or workflow access needed.",
+                                    color = colors.success,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 15.sp
+                                )
+                            }
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Steps guide
+                            // Steps guide Card
                             Card(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(containerColor = colors.paper),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -251,16 +322,16 @@ fun LoginScreen(
                                     Text(
                                         text = stringResource(id = R.string.login_steps_title),
                                         color = colors.ink,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     StepRow(number = "1", text = stringResource(id = R.string.login_step1))
                                     StepRow(number = "2", text = stringResource(id = R.string.login_step2))
-                                    StepRow(number = "3", text = stringResource(id = R.string.login_step3))
-                                    StepRow(number = "4", text = stringResource(id = R.string.login_step4))
+                                    StepRow(number = "3", text = "Tick ONLY the 'gist' checkbox (no repo access needed)")
+                                    StepRow(number = "4", text = "Copy token, paste above, and connect")
                                 }
                             }
 
@@ -293,12 +364,12 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Text(
                         text = stringResource(id = R.string.login_cred_note),
                         color = colors.faint,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -343,7 +414,8 @@ fun StepRow(number: String, text: String) {
         Text(
             text = text,
             color = colors.muted,
-            fontSize = 12.sp
+            fontSize = 12.sp,
+            lineHeight = 16.sp
         )
     }
 }

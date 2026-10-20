@@ -12,12 +12,12 @@
     <string name="login_or">or</string>
     <string name="login_token_toggle">Use a personal access token</string>
     <string name="login_token_label">GitHub Personal Access Token</string>
-    <string name="login_hint">Needs the gist scope. Create one at github.com/settings/tokens</string>
+    <string name="login_hint">Only needs the \'gist\' scope. No repository or workflow access required.</string>
     <string name="login_steps_title">How to create a token</string>
     <string name="login_step1">Open github.com/settings/tokens</string>
     <string name="login_step2">Generate new token (classic)</string>
-    <string name="login_step3">Tick the gist checkbox</string>
-    <string name="login_step4">Copy it, paste above, connect</string>
+    <string name="login_step3">Tick ONLY the \'gist\' checkbox (no repo access needed)</string>
+    <string name="login_step4">Copy token, paste above, and connect</string>
     <string name="login_connect">Connect Securely</string>
     <string name="login_working">Working...</string>
     <string name="login_cred_note">Your credentials stay on this device only.</string>

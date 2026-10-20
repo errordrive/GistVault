@@ -15,16 +15,12 @@ class SettingsRepository(context: Context) {
     companion object {
         const val CURRENT_APP_VERSION = "3.2"
         private const val KEY_THEME = "safestore_theme"
-        private const val KEY_LANG = "safestore_lang"
         private const val KEY_UPDATE_DISMISSED = "gv_update_dismissed"
         private const val KEY_NOTICE_DISMISSED = "gv_notice_dismissed"
     }
 
     private val _themeState = MutableStateFlow(getTheme())
     val themeState: StateFlow<String> = _themeState
-
-    private val _langState = MutableStateFlow(getLanguage())
-    val langState: StateFlow<String> = _langState
 
     fun getTheme(): String {
         return prefs.getString(KEY_THEME, "system") ?: "system"
@@ -33,15 +29,6 @@ class SettingsRepository(context: Context) {
     fun setTheme(theme: String) {
         prefs.edit().putString(KEY_THEME, theme).apply()
         _themeState.value = theme
-    }
-
-    fun getLanguage(): String {
-        return prefs.getString(KEY_LANG, "en") ?: "en"
-    }
-
-    fun setLanguage(lang: String) {
-        prefs.edit().putString(KEY_LANG, lang).apply()
-        _langState.value = lang
     }
 
     fun isUpdateDismissed(version: String?): Boolean {

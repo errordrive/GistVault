@@ -2,7 +2,9 @@ package com.gistvault.app.ui.screens
 
 import android.os.Environment
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -35,8 +37,6 @@ import com.gistvault.app.ui.theme.GistTheme
 import com.gistvault.app.ui.theme.getLanguageColor
 import kotlinx.coroutines.launch
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun ReadScreen(
@@ -49,7 +49,6 @@ fun ReadScreen(
     showToast: (String) -> Unit
 ) {
     val colors = GistTheme.colors
-    val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
@@ -57,9 +56,8 @@ fun ReadScreen(
     var isLoading by remember { mutableStateOf(gist == null) }
     var isFailed by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var isPreviewTab by remember { mutableStateOf(false) } // for markdown preview
+    var isPreviewTab by remember { mutableStateOf(false) }
 
-    // Fetch details
     LaunchedEffect(gistId) {
         isLoading = gist == null
         val result = gistRepository.fetchGistDetail(gistId)
@@ -84,7 +82,7 @@ fun ReadScreen(
                 showBack = true,
                 onBack = onBack
             ) {
-                // Export Button
+                // Export
                 TopBarIconButton(
                     icon = Icons.Default.Download,
                     contentDescription = stringResource(id = R.string.read_export),
@@ -120,7 +118,7 @@ fun ReadScreen(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // Edit Button
+                // Edit
                 TopBarIconButton(
                     icon = Icons.Default.Edit,
                     contentDescription = stringResource(id = R.string.read_edit),
@@ -129,7 +127,7 @@ fun ReadScreen(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // Delete Button
+                // Delete
                 TopBarIconButton(
                     icon = Icons.Default.Delete,
                     contentDescription = stringResource(id = R.string.read_delete),
@@ -152,7 +150,11 @@ fun ReadScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        CircularProgressIndicator(color = colors.primary)
+                        CircularProgressIndicator(
+                            color = colors.primary,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(36.dp)
+                        )
                     }
                 }
                 isFailed -> {
@@ -165,7 +167,7 @@ fun ReadScreen(
                             text = stringResource(id = R.string.read_failed),
                             color = colors.danger,
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -179,7 +181,7 @@ fun ReadScreen(
                             .verticalScroll(rememberScrollState())
                             .padding(16.dp)
                     ) {
-                        // Metadata Row
+                        // Header Info Bar
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -198,7 +200,7 @@ fun ReadScreen(
                                     color = colors.ink,
                                     fontSize = 14.sp,
                                     fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Box(
@@ -211,38 +213,40 @@ fun ReadScreen(
                                         text = stringResource(id = if (currentGist.public) R.string.home_public else R.string.home_secret),
                                         color = colors.primary,
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
 
-                            // Language and date
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
                                         .size(7.dp)
                                         .background(langColor, CircleShape)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = file.language ?: "Text",
                                     color = colors.muted,
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Code Card
+                        // Code Container Card
                         Card(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(containerColor = colors.card),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, colors.line.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
                         ) {
                             Column {
-                                // Code Header
+                                // Code Card Top Toolbar
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -262,11 +266,11 @@ fun ReadScreen(
                                             text = file.language ?: "Text",
                                             color = colors.inkSoft,
                                             fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
 
-                                    // Markdown Preview / Code tab toggle
+                                    // Markdown Preview / Code Tab Toggle
                                     if (isMarkdown) {
                                         Row(
                                             modifier = Modifier
@@ -277,29 +281,29 @@ fun ReadScreen(
                                             Text(
                                                 text = stringResource(id = R.string.read_code),
                                                 color = if (!isPreviewTab) colors.primary else colors.muted,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
                                                     .background(if (!isPreviewTab) colors.card else Color.Transparent)
                                                     .clickable { isPreviewTab = false }
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                                             )
                                             Text(
                                                 text = stringResource(id = R.string.read_preview),
                                                 color = if (isPreviewTab) colors.primary else colors.muted,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
                                                     .background(if (isPreviewTab) colors.card else Color.Transparent)
                                                     .clickable { isPreviewTab = true }
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                                             )
                                         }
                                     }
 
-                                    // Copy Code Button
+                                    // One-tap Copy Code Button
                                     Row(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
@@ -322,18 +326,19 @@ fun ReadScreen(
                                             text = stringResource(id = R.string.read_copy),
                                             color = colors.primary,
                                             fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
 
-                                HorizontalDivider(color = colors.line)
+                                HorizontalDivider(color = colors.line.copy(alpha = 0.6f))
 
-                                // Content Area
+                                // Code Editor Block with horizontal scrolling
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .background(if (colors.isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC))
+                                        .horizontalScroll(rememberScrollState())
                                         .padding(16.dp)
                                 ) {
                                     Text(
@@ -341,7 +346,7 @@ fun ReadScreen(
                                         color = colors.ink,
                                         fontFamily = if (isPreviewTab && isMarkdown) FontFamily.Default else FontFamily.Monospace,
                                         fontSize = 13.sp,
-                                        lineHeight = 20.sp
+                                        lineHeight = 21.sp
                                     )
                                 }
                             }

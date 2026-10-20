@@ -1,6 +1,7 @@
 package com.gistvault.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,19 +47,20 @@ fun GistCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(colors.card)
+            .border(1.dp, colors.line.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
-            .padding(14.dp)
+            .padding(15.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {
-            // File icon tile with language color
+            // File icon tile with language color & glow
             Box(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(langColor.copy(alpha = 0.15f)),
+                    .background(langColor.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -77,19 +80,19 @@ fun GistCard(
                 Text(
                     text = gist.displayTitle,
                     color = colors.ink,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
-                // Filename
+                // Filename in monospace
                 Text(
                     text = primaryFile.filename,
                     color = colors.muted,
-                    fontSize = 13.sp,
+                    fontSize = 12.5.sp,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -125,7 +128,7 @@ fun GistCard(
                                 text = language,
                                 color = colors.inkSoft,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
 
@@ -141,24 +144,33 @@ fun GistCard(
                                 imageVector = if (gist.public) Icons.Default.Public else Icons.Default.Lock,
                                 contentDescription = null,
                                 tint = colors.muted,
-                                modifier = Modifier.size(12.dp)
+                                modifier = Modifier.size(11.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = stringResource(id = if (gist.public) R.string.home_public else R.string.home_secret),
                                 color = colors.muted,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
 
-                    // Relative date
-                    Text(
-                        text = formatRelativeTime(gist.updatedAt),
-                        color = colors.faint,
-                        fontSize = 11.sp
-                    )
+                    // Relative date with icon
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = colors.faint,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = formatRelativeTime(gist.updatedAt),
+                            color = colors.faint,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
 
                 // Tags row
@@ -173,38 +185,17 @@ fun GistCard(
                                 text = "#$tag",
                                 color = colors.primary,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(colors.primarySoft)
                                     .clickable { onTagClick(tag) }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
                             )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-// Relative time formatting matching T(e) in the original app:
-fun formatRelativeTime(dateString: String?): String {
-    if (dateString.isNullOrBlank()) return ""
-    return try {
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val date = parser.parse(dateString) ?: return ""
-        val diffSec = (System.currentTimeMillis() - date.time) / 1000
-        when {
-            diffSec < 60 -> "just now"
-            diffSec < 3600 -> "${diffSec / 60}m ago"
-            diffSec < 86400 -> "${diffSec / 3600}h ago"
-            diffSec < 2592000 -> "${diffSec / 86400}d ago"
-            else -> SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(date)
-        }
-    } catch (_: Exception) {
-        ""
     }
 }
