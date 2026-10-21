@@ -1,5 +1,10 @@
 package com.gistvault.app.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,16 +27,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gistvault.app.R
 import com.gistvault.app.data.model.Gist
-import com.gistvault.app.ui.components.GistCard
-import com.gistvault.app.ui.components.TopBar
-import com.gistvault.app.ui.components.TopBarIconButton
+import com.gistvault.app.ui.components.*
 import com.gistvault.app.ui.theme.GistTheme
 
 @Composable
@@ -42,39 +45,49 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onOpenGist: (String) -> Unit,
     onNewGist: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onToggleStar: (String) -> Unit,
+    onEditGist: (String) -> Unit,
+    onDeleteGist: (String) -> Unit,
+    showToast: (String) -> Unit
 ) {
     val colors = GistTheme.colors
+    val context = LocalContext.current
+
     var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf("all") } // "all", "secret", "public"
+    var selectedFilter by remember { mutableStateOf("all") } // "all", "public", "secret", "starred"
+    var selectedGistForSheet by remember { mutableStateOf<Gist?>(null) }
 
-    // Extract all unique tags across all gists
-    val allTags = remember(gists) {
-        gists.flatMap { it.tags }.distinct().take(12)
-    }
+    // Counts
+    val totalCount = gists.size
+    val publicCount = remember(gists) { gists.count { it.public } }
+    val secretCount = remember(gists) { gists.count { !it.public } }
+    val starredCount = remember(gists) { gists.count { it.isStarred } }
 
-    // Filtering by text, filter chip, or #tag
+    // Filtering logic
     val filteredGists = remember(gists, searchQuery, selectedFilter) {
-        var list = gists
-        if (selectedFilter == "secret") {
-            list = list.filter { !it.public }
-        } else if (selectedFilter == "public") {
-            list = list.filter { it.public }
+        var list = when (selectedFilter) {
+            "public" -> gists.filter { it.public }
+            "secret" -> gists.filter { !it.public }
+            "starred" -> gists.filter { it.isStarred }
+            else -> gists
         }
 
         val query = searchQuery.trim().lowercase()
-        if (query.isEmpty()) {
-            list
-        } else if (query.startsWith("#")) {
-            val tag = query.removePrefix("#")
-            list.filter { gist -> gist.tags.any { it.contains(tag) } }
-        } else {
-            list.filter { gist ->
-                gist.displayTitle.lowercase().contains(query) ||
-                gist.primaryFile.filename.lowercase().contains(query) ||
-                gist.tags.any { it.contains(query) }
+        if (query.isNotEmpty()) {
+            if (query.startsWith("#")) {
+                val tag = query.removePrefix("#")
+                list = list.filter { gist -> gist.tags.any { it.contains(tag) } }
+            } else {
+                list = list.filter { gist ->
+                    gist.displayTitle.lowercase().contains(query) ||
+                    gist.primaryFile.filename.lowercase().contains(query) ||
+                    (gist.description?.lowercase()?.contains(query) == true) ||
+                    gist.tags.any { it.contains(query) }
+                }
             }
         }
+        list
     }
 
     Scaffold(
@@ -82,38 +95,33 @@ fun HomeScreen(
             Column {
                 TopBar(
                     title = "GistVault",
-                    subtitle = if (gists.isEmpty()) {
-                        stringResource(id = R.string.home_empty)
-                    } else {
-                        "${gists.size} ${stringResource(id = if (gists.size == 1) R.string.home_entry else R.string.home_entries)}"
-                    },
                     showLogo = true
                 ) {
                     TopBarIconButton(
                         icon = Icons.Default.Refresh,
-                        contentDescription = stringResource(id = R.string.home_refresh),
+                        contentDescription = "Refresh",
                         onClick = onRefresh,
                         isSpinning = isLoading
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     TopBarIconButton(
                         icon = Icons.Default.Settings,
-                        contentDescription = stringResource(id = R.string.home_settings),
+                        contentDescription = "Settings",
                         onClick = onOpenSettings
                     )
                 }
 
-                // Offline Bar Banner
+                // Offline Notice Bar
                 AnimatedVisibility(visible = isOffline) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(colors.dangerSoft)
-                            .padding(vertical = 7.dp, horizontal = 16.dp),
+                            .padding(vertical = 6.dp, horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(id = R.string.offline_bar),
+                            text = "Offline Mode — Cached Gists Displayed",
                             color = colors.danger,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
@@ -121,21 +129,23 @@ fun HomeScreen(
                     }
                 }
 
-                // Search Bar with pill shape
+                // Search Bar matching Screen 2
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colors.paper)
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
                         placeholder = {
                             Text(
-                                text = stringResource(id = R.string.home_search),
+                                text = "Search gists...",
                                 color = colors.faint,
-                                fontSize = 13.5.sp
+                                fontSize = 14.sp
                             )
                         },
                         leadingIcon = {
@@ -143,7 +153,7 @@ fun HomeScreen(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = null,
                                 tint = colors.muted,
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         },
                         trailingIcon = {
@@ -152,78 +162,75 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear",
-                                        tint = colors.muted,
+                                        tint = colors.faint,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(999.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = colors.card,
                             unfocusedContainerColor = colors.card,
                             focusedBorderColor = colors.primary,
-                            unfocusedBorderColor = colors.line.copy(alpha = 0.7f),
+                            unfocusedBorderColor = colors.line.copy(alpha = 0.6f),
                             focusedTextColor = colors.ink,
                             unfocusedTextColor = colors.ink
-                        ),
-                        modifier = Modifier.fillMaxWidth().height(50.dp)
+                        )
                     )
                 }
 
-                // Filter & Tag Chips Bar
-                if (gists.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(colors.paper)
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterPill(
-                            label = "All",
-                            isSelected = selectedFilter == "all",
-                            onClick = { selectedFilter = "all" }
-                        )
-                        FilterPill(
-                            label = "Secret",
-                            isSelected = selectedFilter == "secret",
-                            onClick = { selectedFilter = "secret" }
-                        )
-                        FilterPill(
-                            label = "Public",
-                            isSelected = selectedFilter == "public",
-                            onClick = { selectedFilter = "public" }
-                        )
-
-                        allTags.forEach { tag ->
-                            val isTagActive = searchQuery == "#$tag"
-                            FilterPill(
-                                label = "#$tag",
-                                isSelected = isTagActive,
-                                onClick = {
-                                    searchQuery = if (isTagActive) "" else "#$tag"
-                                }
-                            )
-                        }
-                    }
+                // Filter Chips Row (All 24, Public 18, Secret 6)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HomeFilterPill(
+                        label = "All $totalCount",
+                        isSelected = selectedFilter == "all",
+                        onClick = { selectedFilter = "all" }
+                    )
+                    HomeFilterPill(
+                        label = "Public $publicCount",
+                        isSelected = selectedFilter == "public",
+                        onClick = { selectedFilter = "public" }
+                    )
+                    HomeFilterPill(
+                        label = "Secret $secretCount",
+                        isSelected = selectedFilter == "secret",
+                        onClick = { selectedFilter = "secret" }
+                    )
                 }
+
+                // 4-Card Statistics Grid (Total, Public, Secret, Starred)
+                StatsGrid(
+                    total = totalCount,
+                    publicCount = publicCount,
+                    secretCount = secretCount,
+                    starredCount = starredCount,
+                    selectedFilter = selectedFilter,
+                    onSelectFilter = { selectedFilter = it }
+                )
             }
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNewGist,
                 containerColor = colors.primary,
-                contentColor = colors.onPrimary,
+                contentColor = Color.White,
                 shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
-                modifier = Modifier.size(56.dp)
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
+                modifier = Modifier
+                    .padding(bottom = 12.dp)
+                    .size(56.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(id = R.string.home_new),
+                    contentDescription = "New Gist",
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -245,33 +252,34 @@ fun HomeScreen(
                         CircularProgressIndicator(
                             color = colors.primary,
                             strokeWidth = 3.dp,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Text(
-                            text = stringResource(id = R.string.home_syncing),
+                            text = "Syncing your gists...",
                             color = colors.muted,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
-                gists.isEmpty() && isOffline -> {
-                    EmptyStateView(
-                        title = stringResource(id = R.string.home_no_conn),
-                        subtitle = stringResource(id = R.string.home_no_conn_sub)
-                    )
-                }
                 gists.isEmpty() -> {
-                    EmptyStateView(
-                        title = stringResource(id = R.string.home_empty_title),
-                        subtitle = stringResource(id = R.string.home_empty_sub)
+                    EmptyVaultView(
+                        title = "No gists yet",
+                        subtitle = "Create your first gist to get started and keep your code, notes and snippets safe.",
+                        actionText = "Create Your First Gist",
+                        onAction = onNewGist
                     )
                 }
                 filteredGists.isEmpty() -> {
-                    EmptyStateView(
-                        title = stringResource(id = R.string.home_no_match),
-                        subtitle = stringResource(id = R.string.home_no_match_sub)
+                    EmptyVaultView(
+                        title = "No matching gists",
+                        subtitle = "Try adjusting your search query or filter chips.",
+                        actionText = "Clear Filters",
+                        onAction = {
+                            searchQuery = ""
+                            selectedFilter = "all"
+                        }
                     )
                 }
                 else -> {
@@ -284,6 +292,8 @@ fun HomeScreen(
                             GistCard(
                                 gist = gist,
                                 onClick = { onOpenGist(gist.id) },
+                                onToggleStar = { onToggleStar(gist.id) },
+                                onMoreOptions = { selectedGistForSheet = gist },
                                 onTagClick = { tag -> searchQuery = "#$tag" }
                             )
                         }
@@ -292,10 +302,38 @@ fun HomeScreen(
             }
         }
     }
+
+    // More Options Bottom Sheet
+    selectedGistForSheet?.let { gist ->
+        GistActionsSheet(
+            gist = gist,
+            onCopyContent = {
+                val content = gist.primaryFile.content ?: ""
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Gist Content", content))
+                showToast("Content copied to clipboard")
+            },
+            onShareGist = {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, gist.displayTitle)
+                    putExtra(Intent.EXTRA_TEXT, "https://gist.github.com/${gist.id}")
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "Share Gist"))
+            },
+            onOpenInGitHub = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://gist.github.com/${gist.id}"))
+                context.startActivity(intent)
+            },
+            onEditGist = { onEditGist(gist.id) },
+            onDeleteGist = { onDeleteGist(gist.id) },
+            onDismiss = { selectedGistForSheet = null }
+        )
+    }
 }
 
 @Composable
-fun FilterPill(
+fun HomeFilterPill(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -306,66 +344,20 @@ fun FilterPill(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(if (isSelected) colors.primary else colors.card)
+            .border(
+                1.dp,
+                if (isSelected) colors.primary else colors.line.copy(alpha = 0.5f),
+                RoundedCornerShape(999.dp)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            color = if (isSelected) colors.onPrimary else colors.inkSoft,
-            fontSize = 12.sp,
+            color = if (isSelected) Color.White else colors.inkSoft,
+            fontSize = 12.5.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-fun EmptyStateView(
-    title: String,
-    subtitle: String
-) {
-    val colors = GistTheme.colors
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(colors.primarySoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
-                tint = colors.primary,
-                modifier = Modifier.size(36.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Text(
-            text = title,
-            color = colors.ink,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = subtitle,
-            color = colors.muted,
-            fontSize = 13.5.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 19.sp
         )
     }
 }

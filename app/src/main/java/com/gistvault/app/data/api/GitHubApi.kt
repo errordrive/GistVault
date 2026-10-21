@@ -37,6 +37,27 @@ interface GitHubApi {
     suspend fun deleteGist(
         @Path("id") id: String
     ): Response<Unit>
+
+    @GET("gists/starred")
+    suspend fun getStarredGists(
+        @Query("per_page") perPage: Int = 100,
+        @Query("t") timestamp: Long = System.currentTimeMillis()
+    ): Response<List<Gist>>
+
+    @GET("gists/{id}/star")
+    suspend fun checkIsStarred(
+        @Path("id") id: String
+    ): Response<Unit>
+
+    @PUT("gists/{id}/star")
+    suspend fun starGist(
+        @Path("id") id: String
+    ): Response<Unit>
+
+    @DELETE("gists/{id}/star")
+    suspend fun unstarGist(
+        @Path("id") id: String
+    ): Response<Unit>
 }
 
 interface GitHubAuthApi {

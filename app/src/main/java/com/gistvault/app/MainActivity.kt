@@ -9,6 +9,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +22,7 @@ import com.gistvault.app.data.repository.AuthRepository
 import com.gistvault.app.data.repository.GistRepository
 import com.gistvault.app.data.repository.SettingsRepository
 import com.gistvault.app.navigation.Screen
+import com.gistvault.app.ui.components.GistBottomBar
 import com.gistvault.app.ui.components.NoticeDialog
 import com.gistvault.app.ui.components.ToastHost
 import com.gistvault.app.ui.components.UpdateDialog
@@ -111,6 +114,41 @@ fun GistVaultApp(
         }
     }
 
+    // Toggle star on a gist
+    val toggleStar: (String) -> Unit = { id ->
+        val currentGist = gists.firstOrNull { it.id == id }
+        if (currentGist != null) {
+            val currentlyStarred = currentGist.isStarred
+            gists = gists.map { if (it.id == id) it.copy(isStarred = !currentlyStarred) else it }
+            scope.launch {
+                val res = gistRepository.toggleStar(id, currentlyStarred)
+                res.onSuccess { newStatus ->
+                    gists = gists.map { if (it.id == id) it.copy(isStarred = newStatus) else it }
+                    showToast(if (newStatus) "Starred" else "Unstarred", 1800)
+                }.onFailure {
+                    gists = gists.map { if (it.id == id) it.copy(isStarred = currentlyStarred) else it }
+                    showToast("Failed to update star", 2200)
+                }
+            }
+        }
+    }
+
+    // Delete a gist
+    val deleteGist: (String) -> Unit = { id ->
+        scope.launch {
+            val res = gistRepository.deleteGist(id)
+            res.onSuccess {
+                gists = gists.filterNot { it.id == id }
+                showToast("Gist deleted", 2200)
+                if (currentScreen is Screen.Read) {
+                    currentScreen = Screen.Home
+                }
+            }.onFailure {
+                showToast("Failed to delete gist", 2200)
+            }
+        }
+    }
+
     // Startup check
     LaunchedEffect(Unit) {
         // Fetch remote config for updates & notices
@@ -141,7 +179,7 @@ fun GistVaultApp(
         // Verify session
         val token = authRepository.getToken()
         if (!token.isNullOrBlank()) {
-            delay(1600) // Polished animated splash delay
+            delay(1400) // Polished animated splash delay
             val verify = authRepository.verifyCurrentUser()
             verify.onSuccess { (user, hasScope) ->
                 currentUser = user
@@ -160,12 +198,12 @@ fun GistVaultApp(
                 }
             }
         } else {
-            delay(1600)
+            delay(1400)
             currentScreen = Screen.Login
         }
     }
 
-    // Back handler matching wt()
+    // Back handler
     var lastBackPressTime by remember { mutableStateOf(0L) }
     BackHandler {
         when (val screen = currentScreen) {
@@ -179,8 +217,10 @@ fun GistVaultApp(
                     showToast("Press back again to exit", 2000L)
                 }
             }
-            is Screen.DeviceAuth -> currentScreen = Screen.Login
+            is Screen.Search -> currentScreen = Screen.Home
+            is Screen.Starred -> currentScreen = Screen.Home
             is Screen.Settings -> currentScreen = Screen.Home
+            is Screen.DeviceAuth -> currentScreen = Screen.Login
             is Screen.Read -> currentScreen = Screen.Home
             is Screen.Editor -> {
                 if (screen.gistId != null) {
@@ -193,120 +233,172 @@ fun GistVaultApp(
         }
     }
 
+    val isMainTabScreen = currentScreen is Screen.Home ||
+            currentScreen is Screen.Search ||
+            currentScreen is Screen.Starred ||
+            currentScreen is Screen.Settings
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (val screen = currentScreen) {
-            Screen.Splash -> {
-                SplashScreen()
-            }
-            Screen.Login -> {
-                var isConnecting by remember { mutableStateOf(false) }
-                LoginScreen(
-                    onLoginWithGitHub = {
-                        currentScreen = Screen.DeviceAuth
-                    },
-                    onConnectToken = { token ->
-                        isConnecting = true
-                        authRepository.saveToken(token)
-                        scope.launch {
-                            val result = authRepository.verifyCurrentUser()
-                            result.onSuccess { (user, hasScope) ->
-                                currentUser = user
-                                showToast(
-                                    if (hasScope) "Connected as ${user.login}" else "Connected, but token lacks 'gist' scope",
-                                    3200
-                                )
-                                currentScreen = Screen.Home
-                                refreshGists()
-                            }.onFailure {
-                                authRepository.clearToken()
-                                showToast("Invalid token. Check and try again.", 3200)
-                            }
-                            isConnecting = false
+        if (isMainTabScreen) {
+            Scaffold(
+                bottomBar = {
+                    GistBottomBar(
+                        currentScreen = currentScreen,
+                        onNavigate = { currentScreen = it }
+                    )
+                }
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    when (currentScreen) {
+                        Screen.Home -> {
+                            HomeScreen(
+                                gists = gists,
+                                isLoading = isLoadingGists,
+                                isOffline = isOffline,
+                                onRefresh = refreshGists,
+                                onOpenGist = { gistId -> currentScreen = Screen.Read(gistId) },
+                                onNewGist = { currentScreen = Screen.Editor(null) },
+                                onOpenSettings = { currentScreen = Screen.Settings },
+                                onToggleStar = toggleStar,
+                                onEditGist = { id -> currentScreen = Screen.Editor(id) },
+                                onDeleteGist = deleteGist,
+                                showToast = { showToast(it, 2600) }
+                            )
                         }
-                    },
-                    isLoading = isConnecting,
-                    onSetupCustomClientId = { authRepository.saveCustomClientId(it) },
-                    currentClientId = authRepository.getClientId()
-                )
-            }
-            Screen.DeviceAuth -> {
-                DeviceAuthScreen(
-                    authRepository = authRepository,
-                    onSuccess = { token ->
-                        scope.launch {
-                            val result = authRepository.verifyCurrentUser()
-                            result.onSuccess { (user, hasScope) ->
-                                currentUser = user
-                                showToast(
-                                    if (hasScope) "Connected as ${user.login}" else "Connected, but lacks 'gist' scope",
-                                    3200
-                                )
-                                currentScreen = Screen.Home
-                                refreshGists()
-                            }
+                        Screen.Search -> {
+                            SearchScreen(
+                                gists = gists,
+                                onOpenGist = { gistId -> currentScreen = Screen.Read(gistId) },
+                                onToggleStar = toggleStar,
+                                onEditGist = { id -> currentScreen = Screen.Editor(id) },
+                                onDeleteGist = deleteGist,
+                                onBack = { currentScreen = Screen.Home },
+                                showToast = { showToast(it, 2600) }
+                            )
                         }
-                    },
-                    onCancel = { currentScreen = Screen.Login },
-                    showToast = { showToast(it, 2600) }
-                )
+                        Screen.Starred -> {
+                            StarredScreen(
+                                gists = gists,
+                                onOpenGist = { gistId -> currentScreen = Screen.Read(gistId) },
+                                onToggleStar = toggleStar,
+                                onEditGist = { id -> currentScreen = Screen.Editor(id) },
+                                onDeleteGist = deleteGist,
+                                showToast = { showToast(it, 2600) }
+                            )
+                        }
+                        Screen.Settings -> {
+                            SettingsScreen(
+                                currentUser = currentUser,
+                                currentTheme = currentTheme,
+                                onSelectTheme = { settingsRepository.setTheme(it) },
+                                onDisconnect = {
+                                    authRepository.clearToken()
+                                    currentUser = null
+                                    gists = emptyList()
+                                    currentScreen = Screen.Login
+                                    showToast("Disconnected", 2600)
+                                },
+                                onBack = { currentScreen = Screen.Home }
+                            )
+                        }
+                        else -> Unit
+                    }
+                }
             }
-            Screen.Home -> {
-                HomeScreen(
-                    gists = gists,
-                    isLoading = isLoadingGists,
-                    isOffline = isOffline,
-                    onRefresh = refreshGists,
-                    onOpenGist = { gistId -> currentScreen = Screen.Read(gistId) },
-                    onNewGist = { currentScreen = Screen.Editor(null) },
-                    onOpenSettings = { currentScreen = Screen.Settings }
-                )
-            }
-            is Screen.Read -> {
-                ReadScreen(
-                    gistId = screen.gistId,
-                    currentUser = currentUser,
-                    gistRepository = gistRepository,
-                    onBack = { currentScreen = Screen.Home },
-                    onEdit = { id -> currentScreen = Screen.Editor(id) },
-                    onDeleted = {
-                        refreshGists()
-                        currentScreen = Screen.Home
-                    },
-                    showToast = { showToast(it, 2600) }
-                )
-            }
-            is Screen.Editor -> {
-                EditorScreen(
-                    gistId = screen.gistId,
-                    gistRepository = gistRepository,
-                    onBack = {
-                        if (screen.gistId != null) {
-                            currentScreen = Screen.Read(screen.gistId)
-                        } else {
+        } else {
+            when (val screen = currentScreen) {
+                Screen.Splash -> {
+                    SplashScreen()
+                }
+                Screen.Login -> {
+                    var isConnecting by remember { mutableStateOf(false) }
+                    LoginScreen(
+                        onLoginWithGitHub = {
+                            currentScreen = Screen.DeviceAuth
+                        },
+                        onConnectToken = { token ->
+                            isConnecting = true
+                            authRepository.saveToken(token)
+                            scope.launch {
+                                val result = authRepository.verifyCurrentUser()
+                                result.onSuccess { (user, hasScope) ->
+                                    currentUser = user
+                                    showToast(
+                                        if (hasScope) "Connected as ${user.login}" else "Connected, but token lacks 'gist' scope",
+                                        3200
+                                    )
+                                    currentScreen = Screen.Home
+                                    refreshGists()
+                                }.onFailure {
+                                    authRepository.clearToken()
+                                    showToast("Invalid token. Check and try again.", 3200)
+                                }
+                                isConnecting = false
+                            }
+                        },
+                        isLoading = isConnecting,
+                        onSetupCustomClientId = { authRepository.saveCustomClientId(it) },
+                        currentClientId = authRepository.getClientId()
+                    )
+                }
+                Screen.DeviceAuth -> {
+                    DeviceAuthScreen(
+                        authRepository = authRepository,
+                        onSuccess = { token ->
+                            scope.launch {
+                                val result = authRepository.verifyCurrentUser()
+                                result.onSuccess { (user, hasScope) ->
+                                    currentUser = user
+                                    showToast(
+                                        if (hasScope) "Connected as ${user.login}" else "Connected, but lacks 'gist' scope",
+                                        3200
+                                    )
+                                    currentScreen = Screen.Home
+                                    refreshGists()
+                                }
+                            }
+                        },
+                        onCancel = { currentScreen = Screen.Login },
+                        showToast = { showToast(it, 2600) }
+                    )
+                }
+                is Screen.Read -> {
+                    ReadScreen(
+                        gistId = screen.gistId,
+                        currentUser = currentUser,
+                        gistRepository = gistRepository,
+                        onBack = { currentScreen = Screen.Home },
+                        onEdit = { id -> currentScreen = Screen.Editor(id) },
+                        onDeleted = {
+                            refreshGists()
                             currentScreen = Screen.Home
-                        }
-                    },
-                    onSaved = { savedId ->
-                        refreshGists()
-                        currentScreen = Screen.Read(savedId)
-                    },
-                    showToast = { showToast(it, 2600) }
-                )
-            }
-            Screen.Settings -> {
-                SettingsScreen(
-                    currentUser = currentUser,
-                    currentTheme = currentTheme,
-                    onSelectTheme = { settingsRepository.setTheme(it) },
-                    onDisconnect = {
-                        authRepository.clearToken()
-                        currentUser = null
-                        gists = emptyList()
-                        currentScreen = Screen.Login
-                        showToast("Disconnected", 2600)
-                    },
-                    onBack = { currentScreen = Screen.Home }
-                )
+                        },
+                        showToast = { showToast(it, 2600) }
+                    )
+                }
+                is Screen.Editor -> {
+                    EditorScreen(
+                        gistId = screen.gistId,
+                        gistRepository = gistRepository,
+                        onBack = {
+                            if (screen.gistId != null) {
+                                currentScreen = Screen.Read(screen.gistId)
+                            } else {
+                                currentScreen = Screen.Home
+                            }
+                        },
+                        onSaved = { savedId ->
+                            refreshGists()
+                            currentScreen = Screen.Read(savedId)
+                        },
+                        showToast = { showToast(it, 2600) }
+                    )
+                }
+                else -> Unit
             }
         }
 

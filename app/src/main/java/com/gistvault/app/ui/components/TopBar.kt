@@ -4,15 +4,15 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,10 +31,10 @@ import com.gistvault.app.ui.theme.GistTheme
 fun TopBar(
     title: String,
     subtitle: String? = null,
-    showBack: Boolean = false,
     showLogo: Boolean = false,
+    showBack: Boolean = false,
     onBack: (() -> Unit)? = null,
-    actions: @Composable RowScope.() -> Unit = {}
+    actions: @Composable (RowScope.() -> Unit)? = null
 ) {
     val colors = GistTheme.colors
 
@@ -42,34 +42,35 @@ fun TopBar(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .height(64.dp)
-            .background(colors.paper)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (showBack && onBack != null) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(colors.card, CircleShape)
-                    .border(1.dp, colors.line.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = colors.ink,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-        } else if (showLogo) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(40.dp)
+                    .clip(CircleShape)
                     .background(colors.card)
-                    .border(1.dp, colors.line.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                    .border(1.dp, colors.line.copy(alpha = 0.6f), CircleShape)
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = colors.ink,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+        } else if (showLogo) {
+            // High-resolution app logo icon
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.line.copy(alpha = 0.6f), RoundedCornerShape(11.dp))
                     .padding(3.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -78,7 +79,7 @@ fun TopBar(
                     contentDescription = "GistVault Logo",
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(9.dp))
+                        .clip(RoundedCornerShape(8.dp))
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -87,15 +88,32 @@ fun TopBar(
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            Text(
-                text = title,
-                color = colors.ink,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.3.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (showLogo && title == "GistVault") {
+                // Two-toned Brand Title: Gist (White/Ink) + Vault (Electric Blue)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Gist",
+                        color = colors.ink,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Vault",
+                        color = colors.primary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                Text(
+                    text = title,
+                    color = colors.ink,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             if (subtitle != null) {
                 Text(
                     text = subtitle,
@@ -108,10 +126,12 @@ fun TopBar(
             }
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            content = actions
-        )
+        if (actions != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions
+            )
+        }
     }
 }
 
@@ -120,37 +140,38 @@ fun TopBarIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    isSpinning: Boolean = false,
-    tint: Color = GistTheme.colors.ink,
-    isDanger: Boolean = false
+    tint: Color? = null,
+    isSpinning: Boolean = false
 ) {
     val colors = GistTheme.colors
-    val rotation by if (isSpinning) {
+
+    val rotation = if (isSpinning) {
         val infiniteTransition = rememberInfiniteTransition(label = "spin")
-        infiniteTransition.animateFloat(
+        val angle by infiniteTransition.animateFloat(
             initialValue = 0f,
             targetValue = 360f,
             animationSpec = infiniteRepeatable(
-                animation = tween(1000, easing = LinearEasing),
+                animation = tween(900, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
-            label = "spin"
+            label = "spinAngle"
         )
-    } else {
-        rememberUpdatedState(0f)
-    }
+        angle
+    } else 0f
 
-    IconButton(
-        onClick = onClick,
+    Box(
         modifier = Modifier
             .size(40.dp)
-            .background(if (isDanger) colors.dangerSoft else colors.card, CircleShape)
-            .border(1.dp, if (isDanger) colors.danger.copy(alpha = 0.3f) else colors.line.copy(alpha = 0.5f), CircleShape)
+            .clip(CircleShape)
+            .background(colors.card)
+            .border(1.dp, colors.line.copy(alpha = 0.6f), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isDanger) colors.danger else tint,
+            tint = tint ?: colors.ink,
             modifier = Modifier
                 .size(19.dp)
                 .rotate(rotation)

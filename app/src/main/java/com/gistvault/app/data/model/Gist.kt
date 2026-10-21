@@ -11,13 +11,19 @@ data class Gist(
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
     val files: Map<String, GistFile> = emptyMap(),
-    val owner: GistOwner? = null
+    val owner: GistOwner? = null,
+    val isStarred: Boolean = false
 ) {
     val primaryFile: GistFile
         get() = files.values.firstOrNull() ?: GistFile(filename = "file.txt", language = "Text")
 
     val displayTitle: String
-        get() = description?.takeIf { it.isNotBlank() } ?: "Untitled entry"
+        get() = primaryFile.filename.takeIf { it.isNotBlank() }
+            ?: description?.takeIf { it.isNotBlank() }
+            ?: "Untitled Gist"
+
+    val displaySubtitle: String?
+        get() = if (description != null && description.isNotBlank() && description != primaryFile.filename) description else null
 
     val tags: List<String>
         get() {
@@ -135,4 +141,10 @@ data class Draft(
     val content: String = "",
     val vis: String = "secret",
     val ts: Long = System.currentTimeMillis()
+)
+
+data class EditorFile(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val filename: String = "",
+    val content: String = ""
 )

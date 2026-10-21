@@ -3,218 +3,123 @@ package com.gistvault.app.ui.screens
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gistvault.app.R
-import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen() {
-    var startAnimation by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        startAnimation = true
-    }
-
-    // Spring entrance scale for logo
-    val logoScale by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0.6f,
-        animationSpec = spring(
-            dampingRatio = 0.65f,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "logoScale"
-    )
-
-    // Fade-in alpha for logo
-    val logoAlpha by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-        label = "logoAlpha"
-    )
-
-    // Content slide-in & alpha
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(durationMillis = 800, delayMillis = 200, easing = FastOutSlowInEasing),
-        label = "contentAlpha"
-    )
-
-    // Breathing glow animation
-    val infiniteTransition = rememberInfiniteTransition(label = "breathingGlow")
-    val glowScale by infiniteTransition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.25f,
+    val transition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by transition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.04f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
+            animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "glowScale"
-    )
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.65f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
+        label = "pulseScale"
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
+                Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFF070D19),
-                        Color(0xFF0A1120),
-                        Color(0xFF0D172A)
+                        Color(0xFF132247),
+                        Color(0xFF0A1329),
+                        Color(0xFF090E17)
                     )
                 )
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Subtle ambient radial light
-        Box(
-            modifier = Modifier
-                .size(280.dp)
-                .scale(glowScale)
-                .alpha(glowAlpha)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF2563EB).copy(alpha = 0.35f),
-                            Color(0xFF3B82F6).copy(alpha = 0.15f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
+            verticalArrangement = Arrangement.Center
         ) {
-            // Logo container with subtle shadow & glow
+            // Glowing 3D Squircle Logo matching Screen 1
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(110.dp)
-                    .scale(logoScale)
-                    .alpha(logoAlpha)
+                    .size(112.dp)
+                    .scale(pulseScale)
             ) {
-                // Glow disc
+                // Outer glow border disc
                 Box(
                     modifier = Modifier
-                        .size(92.dp)
-                        .clip(RoundedCornerShape(26.dp))
+                        .size(108.dp)
+                        .clip(RoundedCornerShape(32.dp))
                         .background(Color(0xFF2563EB).copy(alpha = 0.25f))
+                        .border(1.5.dp, Color(0xFF388BFD).copy(alpha = 0.6f), RoundedCornerShape(32.dp))
                 )
 
-                // High-resolution PNG Logo
+                // High-resolution App Logo
                 Image(
                     painter = painterResource(id = R.drawable.logo_app),
                     contentDescription = "GistVault Logo",
                     modifier = Modifier
-                        .size(82.dp)
-                        .clip(RoundedCornerShape(22.dp))
+                        .size(96.dp)
+                        .clip(RoundedCornerShape(28.dp))
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // App Name
-            Text(
-                text = "GistVault",
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.2.sp,
-                modifier = Modifier.alpha(contentAlpha)
-            )
+            // Two-tone Brand Wordmark matching Screen 1: "Gist" (White) + "Vault" (Electric Blue)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Gist",
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "Vault",
+                    color = Color(0xFF2563EB),
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Subtitle Tagline
+            // Subtitle Tagline matching Screen 1: "Your GitHub Gists Safely Stored"
             Text(
-                text = "SECURE VAULT FOR GISTS & CODE",
-                color = Color(0xFF8B9BB8),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.4.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.alpha(contentAlpha)
+                text = "Your GitHub Gists Safely Stored",
+                color = Color(0xFF8B949E),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(56.dp))
 
-            // Three modern pulsing loader dots
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.alpha(contentAlpha)
-            ) {
-                val dot1 = rememberDotAnimation(delay = 0)
-                val dot2 = rememberDotAnimation(delay = 200)
-                val dot3 = rememberDotAnimation(delay = 400)
-
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .scale(dot1)
-                        .clip(CircleShape)
-                        .background(Color(0xFF4D8DFF))
-                )
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .scale(dot2)
-                        .clip(CircleShape)
-                        .background(Color(0xFF4D8DFF))
-                )
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .scale(dot3)
-                        .clip(CircleShape)
-                        .background(Color(0xFF4D8DFF))
-                )
-            }
+            // Minimal circular spinner matching Screen 1
+            CircularProgressIndicator(
+                color = Color(0xFF2563EB),
+                strokeWidth = 2.5.dp,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
-}
-
-@Composable
-private fun rememberDotAnimation(delay: Int): Float {
-    val infiniteTransition = rememberInfiniteTransition(label = "dot$delay")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 600, delayMillis = delay, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale$delay"
-    )
-    return scale
 }

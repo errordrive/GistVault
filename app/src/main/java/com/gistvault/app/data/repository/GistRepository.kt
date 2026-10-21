@@ -16,6 +16,7 @@ class GistRepository(context: Context) {
         private const val KEY_CACHE_GISTS = "gv_cache_gists"
         private const val PREFIX_CACHE_GIST = "gv_cache_gist_"
         private const val PREFIX_DRAFT = "gv_draft_"
+        private const val KEY_STARRED_IDS = "gv_starred_ids"
         private const val MAX_CACHE_SIZE = 512 * 1024
     }
 
@@ -25,10 +26,20 @@ class GistRepository(context: Context) {
         encodeDefaults = true
     }
 
+    fun getStarredIds(): Set<String> {
+        return prefs.getStringSet(KEY_STARRED_IDS, emptySet()) ?: emptySet()
+    }
+
+    fun saveStarredIds(ids: Set<String>) {
+        prefs.edit().putStringSet(KEY_STARRED_IDS, ids).apply()
+    }
+
     fun getCachedGists(): List<Gist>? {
         val raw = prefs.getString(KEY_CACHE_GISTS, null) ?: return null
         return try {
-            json.decodeFromString<List<Gist>>(raw)
+            val list = json.decodeFromString<List<Gist>>(raw)
+            val starredIds = getStarredIds()
+            list.map { it.copy(isStarred = starredIds.contains(it.id)) }
         } catch (e: Exception) {
             null
         }
@@ -44,7 +55,8 @@ class GistRepository(context: Context) {
     fun getCachedGist(id: String): Gist? {
         val raw = prefs.getString(PREFIX_CACHE_GIST + id, null) ?: return null
         return try {
-            json.decodeFromString<Gist>(raw)
+            val gist = json.decodeFromString<Gist>(raw)
+            gist.copy(isStarred = getStarredIds().contains(id))
         } catch (e: Exception) {
             null
         }
@@ -84,9 +96,22 @@ class GistRepository(context: Context) {
 
     suspend fun fetchGists(): Result<List<Gist>> = withContext(Dispatchers.IO) {
         try {
+            // First attempt to get starred gists silently to keep star statuses in sync
+            val starredResult = runCatching { ApiClient.gitHubApi.getStarredGists() }
+            val starredIds = if (starredResult.isSuccess && starredResult.getOrNull()?.isSuccessful == true) {
+                val set = starredResult.getOrNull()?.body()?.map { it.id }?.toSet() ?: emptySet()
+                saveStarredIds(set)
+                set
+            } else {
+                getStarredIds()
+            }
+
             val response = ApiClient.gitHubApi.getGists()
             if (response.isSuccessful && response.body() != null) {
-                val gists = response.body()!!
+                val rawGists = response.body()!!
+                val gists = rawGists.map { gist ->
+                    gist.copy(isStarred = starredIds.contains(gist.id))
+                }
                 saveCachedGists(gists)
                 Result.success(gists)
             } else {
@@ -102,11 +127,52 @@ class GistRepository(context: Context) {
         }
     }
 
+    suspend fun toggleStar(id: String, currentlyStarred: Boolean): Result<Boolean> = withContext(Dispatchers.IO) {
+        val currentSet = getStarredIds().toMutableSet()
+        val targetStarred = !currentlyStarred
+        if (targetStarred) {
+            currentSet.add(id)
+        } else {
+            currentSet.remove(id)
+        }
+        saveStarredIds(currentSet)
+
+        try {
+            val response = if (targetStarred) {
+                ApiClient.gitHubApi.starGist(id)
+            } else {
+                ApiClient.gitHubApi.unstarGist(id)
+            }
+            if (response.isSuccessful || response.code() == 204) {
+                // Update in cached list
+                val cached = getCachedGists()
+                if (cached != null) {
+                    val updated = cached.map {
+                        if (it.id == id) it.copy(isStarred = targetStarred) else it
+                    }
+                    saveCachedGists(updated)
+                }
+                Result.success(targetStarred)
+            } else {
+                // Revert on failure
+                if (currentlyStarred) currentSet.add(id) else currentSet.remove(id)
+                saveStarredIds(currentSet)
+                Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            // Revert on failure
+            if (currentlyStarred) currentSet.add(id) else currentSet.remove(id)
+            saveStarredIds(currentSet)
+            Result.failure(e)
+        }
+    }
+
     suspend fun fetchGistDetail(id: String): Result<Gist> = withContext(Dispatchers.IO) {
         try {
             val response = ApiClient.gitHubApi.getGist(id)
             if (response.isSuccessful && response.body() != null) {
-                val gist = response.body()!!
+                val isStarred = getStarredIds().contains(id)
+                val gist = response.body()!!.copy(isStarred = isStarred)
                 saveCachedGist(id, gist)
                 Result.success(gist)
             } else {
@@ -122,12 +188,25 @@ class GistRepository(context: Context) {
         }
     }
 
-    suspend fun createGist(description: String, filename: String, content: String, isPublic: Boolean): Result<Gist> = withContext(Dispatchers.IO) {
+    suspend fun createGist(
+        description: String,
+        files: Map<String, String>,
+        isPublic: Boolean
+    ): Result<Gist> = withContext(Dispatchers.IO) {
         try {
+            val fileMap = files.filter { it.key.isNotBlank() }.mapValues { GistFileContent(it.value) }
+            val finalFiles = if (fileMap.isEmpty()) {
+                mapOf("snippet.txt" to GistFileContent(""))
+            } else {
+                fileMap
+            }
+            val desc = description.trim().ifBlank {
+                finalFiles.keys.firstOrNull() ?: "Gist"
+            }
             val req = CreateGistRequest(
-                description = description.ifBlank { "Untitled entry" },
+                description = desc,
                 public = isPublic,
-                files = mapOf(filename.ifBlank { "config.json" } to GistFileContent(content))
+                files = finalFiles
             )
             val response = ApiClient.gitHubApi.createGist(req)
             if (response.isSuccessful && response.body() != null) {
@@ -141,11 +220,35 @@ class GistRepository(context: Context) {
         }
     }
 
-    suspend fun updateGist(id: String, description: String, filename: String, content: String): Result<Gist> = withContext(Dispatchers.IO) {
+    suspend fun createGist(
+        description: String,
+        filename: String,
+        content: String,
+        isPublic: Boolean
+    ): Result<Gist> = createGist(
+        description = description,
+        files = mapOf(filename.ifBlank { "snippet.txt" } to content),
+        isPublic = isPublic
+    )
+
+    suspend fun updateGist(
+        id: String,
+        description: String,
+        files: Map<String, String>
+    ): Result<Gist> = withContext(Dispatchers.IO) {
         try {
+            val fileMap = files.filter { it.key.isNotBlank() }.mapValues { GistFileContent(it.value) }
+            val finalFiles = if (fileMap.isEmpty()) {
+                mapOf("snippet.txt" to GistFileContent(""))
+            } else {
+                fileMap
+            }
+            val desc = description.trim().ifBlank {
+                finalFiles.keys.firstOrNull() ?: "Gist"
+            }
             val req = UpdateGistRequest(
-                description = description.ifBlank { "Untitled entry" },
-                files = mapOf(filename.ifBlank { "config.json" } to GistFileContent(content))
+                description = desc,
+                files = finalFiles
             )
             val response = ApiClient.gitHubApi.updateGist(id, req)
             if (response.isSuccessful && response.body() != null) {
@@ -159,10 +262,26 @@ class GistRepository(context: Context) {
         }
     }
 
+    suspend fun updateGist(
+        id: String,
+        description: String,
+        filename: String,
+        content: String
+    ): Result<Gist> = updateGist(
+        id = id,
+        description = description,
+        files = mapOf(filename.ifBlank { "snippet.txt" } to content)
+    )
+
     suspend fun deleteGist(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = ApiClient.gitHubApi.deleteGist(id)
             if (response.isSuccessful) {
+                // Remove from cached gists
+                val cached = getCachedGists()
+                if (cached != null) {
+                    saveCachedGists(cached.filterNot { it.id == id })
+                }
                 Result.success(Unit)
             } else {
                 Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
