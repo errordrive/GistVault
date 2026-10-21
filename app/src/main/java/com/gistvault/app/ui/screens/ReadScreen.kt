@@ -406,7 +406,6 @@ fun ReadScreen(
     // Delete Confirmation Dialog
     if (showDeleteDialog) {
         DeleteConfirmDialog(
-            filename = filename,
             onConfirm = {
                 showDeleteDialog = false
                 scope.launch {

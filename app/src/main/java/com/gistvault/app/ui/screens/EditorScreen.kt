@@ -106,37 +106,37 @@ fun EditorScreen(
     val currentFile = files.getOrNull(activeFileIndex) ?: files.firstOrNull() ?: EditorFile()
 
     val saveGistAction: () -> Unit = {
-        if (isSaving) return@saveGistAction
-        val emptyFilename = files.any { it.filename.isBlank() }
-        if (emptyFilename) {
-            showToast("Every file must have a filename")
-            return@saveGistAction
-        }
-
-        isSaving = true
-        scope.launch {
-            val fileMap = files.associate { it.filename.trim() to it.content }
-            val result = if (gistId == null) {
-                gistRepository.createGist(
-                    description = description,
-                    files = fileMap,
-                    isPublic = isPublic
-                )
+        if (!isSaving) {
+            val emptyFilename = files.any { it.filename.isBlank() }
+            if (emptyFilename) {
+                showToast("Every file must have a filename")
             } else {
-                gistRepository.updateGist(
-                    id = gistId,
-                    description = description,
-                    files = fileMap
-                )
-            }
+                isSaving = true
+                scope.launch {
+                    val fileMap = files.associate { it.filename.trim() to it.content }
+                    val result = if (gistId == null) {
+                        gistRepository.createGist(
+                            description = description,
+                            files = fileMap,
+                            isPublic = isPublic
+                        )
+                    } else {
+                        gistRepository.updateGist(
+                            id = gistId,
+                            description = description,
+                            files = fileMap
+                        )
+                    }
 
-            result.onSuccess { savedGist ->
-                gistRepository.clearDraft(gistId)
-                showToast(if (gistId == null) "Gist created" else "Gist updated")
-                onSaved(savedGist.id)
-            }.onFailure { err ->
-                showToast(err.message ?: "Failed to save gist")
-                isSaving = false
+                    result.onSuccess { savedGist ->
+                        gistRepository.clearDraft(gistId)
+                        showToast(if (gistId == null) "Gist created" else "Gist updated")
+                        onSaved(savedGist.id)
+                    }.onFailure { err ->
+                        showToast(err.message ?: "Failed to save gist")
+                        isSaving = false
+                    }
+                }
             }
         }
     }
