@@ -281,6 +281,15 @@ fun DeviceAuthScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
+                    text = "Permission requested: 'gist' only\nNo repository access needed",
+                    color = colors.muted,
+                    fontSize = 11.5.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
                     text = stringResource(id = R.string.device_note),
                     color = colors.faint,
                     fontSize = 11.sp,

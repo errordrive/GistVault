@@ -96,7 +96,7 @@ fun ReadScreen(
     Scaffold(
         topBar = {
             TopBar(
-                title = filename,
+                title = gist?.displayTitle ?: filename,
                 showBack = true,
                 onBack = onBack
             ) {
@@ -190,6 +190,29 @@ fun ReadScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
+            // Filename indicator if title is the Name
+            if (gist?.displaySubtitle != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp, start = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = gist!!.displaySubtitle!!,
+                        color = colors.muted,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
             // 1. Segmented Control: Preview | Raw
             Box(
                 modifier = Modifier

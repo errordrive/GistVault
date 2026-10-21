@@ -39,6 +39,7 @@ fun EditorScreen(
     val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf("") }
+    var filename by remember { mutableStateOf(if (gistId == null) "snippet.txt" else "") }
     var content by remember { mutableStateOf("") }
     var isPublic by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
@@ -50,14 +51,16 @@ fun EditorScreen(
         if (gistId != null) {
             val result = gistRepository.fetchGistDetail(gistId)
             result.onSuccess { remoteGist ->
-                name = remoteGist.primaryFile.filename.ifBlank { remoteGist.description ?: "" }
+                name = remoteGist.description ?: ""
+                filename = remoteGist.primaryFile.filename
                 content = remoteGist.primaryFile.content ?: ""
                 isPublic = remoteGist.public
                 isLoadingRemote = false
             }.onFailure {
                 val draft = gistRepository.getDraft(gistId)
                 if (draft != null) {
-                    name = draft.filename.ifBlank { draft.title }
+                    name = draft.title
+                    filename = draft.filename
                     content = draft.content
                     isPublic = draft.vis == "public"
                     showToast("Draft restored")
@@ -67,7 +70,8 @@ fun EditorScreen(
         } else {
             val draft = gistRepository.getDraft(null)
             if (draft != null) {
-                name = draft.filename.ifBlank { draft.title }
+                name = draft.title
+                filename = draft.filename.ifBlank { "snippet.txt" }
                 content = draft.content
                 isPublic = draft.vis == "public"
                 showToast("Draft restored")
@@ -76,12 +80,12 @@ fun EditorScreen(
     }
 
     // Save draft on change
-    LaunchedEffect(name, content, isPublic) {
+    LaunchedEffect(name, filename, content, isPublic) {
         gistRepository.saveDraft(
             gistId,
             Draft(
                 title = name,
-                filename = name,
+                filename = filename,
                 content = content,
                 vis = if (isPublic) "public" else "secret"
             )
@@ -89,16 +93,15 @@ fun EditorScreen(
     }
 
     val saveGistAction: () -> Unit = {
-        val safeName = name.trim()
-        if (safeName.isBlank()) {
-            showToast("Please enter a name")
-        } else if (!isSaving) {
+        val safeFilename = filename.trim().ifBlank { "snippet.txt" }
+        val safeName = name.trim().ifBlank { safeFilename }
+        if (!isSaving) {
             isSaving = true
             scope.launch {
                 val result = if (gistId == null) {
                     gistRepository.createGist(
                         description = safeName,
-                        filename = safeName,
+                        filename = safeFilename,
                         content = content,
                         isPublic = isPublic
                     )
@@ -106,7 +109,7 @@ fun EditorScreen(
                     gistRepository.updateGist(
                         id = gistId,
                         description = safeName,
-                        filename = safeName,
+                        filename = safeFilename,
                         content = content
                     )
                 }
@@ -179,7 +182,7 @@ fun EditorScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // 1. Name (the preview name on the app)
+            // 1. Name field (shown as the default display name across the app)
             Text(
                 text = "Name",
                 color = colors.muted,
@@ -191,6 +194,40 @@ fun EditorScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        text = "e.g. My Gist / Project Title",
+                        color = colors.faint,
+                        fontSize = 14.sp
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = colors.card,
+                    unfocusedContainerColor = colors.card,
+                    focusedBorderColor = colors.primary,
+                    unfocusedBorderColor = colors.line.copy(alpha = 0.6f),
+                    focusedTextColor = colors.ink,
+                    unfocusedTextColor = colors.ink
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 2. Filename field (strictly 1 file per gist)
+            Text(
+                text = "Filename",
+                color = colors.muted,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            OutlinedTextField(
+                value = filename,
+                onValueChange = { filename = it },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
@@ -213,7 +250,7 @@ fun EditorScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // 2. Visibility Controls (Public / Secret)
+            // 3. Visibility Controls (Public / Secret)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -285,7 +322,7 @@ fun EditorScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // 3. Code Editor with Line Numbers
+            // 4. Code Editor with Line Numbers
             Text(
                 text = "Content",
                 color = colors.muted,

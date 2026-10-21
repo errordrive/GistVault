@@ -18,12 +18,14 @@ data class Gist(
         get() = files.values.firstOrNull() ?: GistFile(filename = "file.txt", language = "Text")
 
     val displayTitle: String
-        get() = primaryFile.filename.takeIf { it.isNotBlank() }
-            ?: description?.takeIf { it.isNotBlank() }
+        get() = description?.takeIf { it.isNotBlank() }
+            ?: primaryFile.filename.takeIf { it.isNotBlank() }
             ?: "Untitled Gist"
 
     val displaySubtitle: String?
-        get() = if (description != null && description.isNotBlank() && description != primaryFile.filename) description else null
+        get() = if (!description.isNullOrBlank() && primaryFile.filename.isNotBlank() && primaryFile.filename != description) {
+            primaryFile.filename
+        } else null
 
     val tags: List<String>
         get() {

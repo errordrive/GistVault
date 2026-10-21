@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,7 +89,7 @@ fun GistCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                // Headline: Filename
+                // Headline: Display Name (Name, or filename fallback)
                 Text(
                     text = gist.displayTitle,
                     color = colors.ink,
@@ -97,6 +98,18 @@ fun GistCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (gist.displaySubtitle != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = gist.displaySubtitle!!,
+                        color = colors.muted,
+                        fontSize = 12.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(3.dp))
 
