@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Sms
@@ -193,18 +192,6 @@ fun SettingsScreen(
                         title = "App Theme",
                         value = themeLabel,
                         onClick = { showThemeSheet = true }
-                    )
-
-                    HorizontalDivider(
-                        color = colors.line.copy(alpha = 0.35f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-
-                    SettingsRow(
-                        icon = Icons.Outlined.Language,
-                        title = "Language",
-                        value = "English",
-                        onClick = {}
                     )
                 }
             }
