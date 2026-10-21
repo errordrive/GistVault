@@ -440,7 +440,7 @@ private fun StepRow(
     val colors = GistTheme.colors
     Row(
         modifier = Modifier.fillMaxWidth(),
-        crossAxisAlignment = Alignment.Top
+        verticalAlignment = Alignment.Top
     ) {
         Box(
             modifier = Modifier
